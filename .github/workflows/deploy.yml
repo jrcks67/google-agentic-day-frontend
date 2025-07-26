@@ -34,7 +34,7 @@ jobs:
 
       - name: Sync build to GCS bucket
         run: |
-          gsutil -m rsync -r -d build/ gs://agentic-day-frontend/
+          gsutil -m rsync -r -d dist/ gs://agentic-day-frontend/
 
       - name: Make files public
         run: |
