@@ -6,7 +6,10 @@ import ProtectedRoutes from './components/ProtectedRoutes'
 import Home from './pages/public/Home'
 import SigninPage from './pages/public/SigninPage'
 import SignupPage from './pages/public/SignupPage'
-import Sahayak from './pages/private/Sahayak'
+import Dashboard from './pages/private/Dashboard'
+import ClassesPage from './pages/private/ClassesPage'
+import ChatPage from './pages/private/ChatPage'
+import SettingsPage from './pages/private/SettingsPage'
 
 
 // Create a React Query client
@@ -32,7 +35,10 @@ const App = () => {
             
             {/* Protected routes */}
             <Route element={<ProtectedRoutes />}>
-              <Route path="/dashboard" element={<Sahayak />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/classes" element={<ClassesPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
             </Route>
           </Routes>
         </Router>

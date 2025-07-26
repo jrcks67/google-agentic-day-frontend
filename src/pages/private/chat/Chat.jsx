@@ -95,7 +95,7 @@ const mockConversations = [
   }
 ];
 
-const Chat = ({ selectedClass, onBackToClasses, onLogout }) => {
+const Chat = ({ selectedClass, onBackToClasses }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState('conversations');
   const [activeDocumentTab, setActiveDocumentTab] = useState('subject_docs');
@@ -702,16 +702,7 @@ const Chat = ({ selectedClass, onBackToClasses, onLogout }) => {
               </div>
             </div>
 
-            {/* Logout Button */}
-            <div className="border-t border-gray-200 p-4">
-              <button
-                onClick={onLogout}
-                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-lg flex items-center space-x-2"
-              >
-                <User size={16} />
-                <span>Logout</span>
-              </button>
-            </div>
+
           </>
         )}
       </div>

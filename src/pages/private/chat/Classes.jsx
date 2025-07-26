@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronRight, Plus, X, BookOpen, Users, Calendar } from 'lucide-react';
 import { useGrades, useCreateGrade } from '../../../hooks/useGrades';
 
@@ -224,12 +224,12 @@ const Classes = ({ onSelectClass }) => {
   const classes = gradesData?.data?.grades || [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-full bg-gray-50">
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Sahayak</h1>
-            <p className="text-gray-600">AI Teaching Assistant for Multi-Grade Classrooms</p>
+            <h1 className="text-2xl font-bold text-gray-900">Your Classes</h1>
+            <p className="text-gray-600">Select a class to start teaching with AI assistance</p>
           </div>
           <div className="flex items-center space-x-4">
             <button
@@ -244,10 +244,6 @@ const Classes = ({ onSelectClass }) => {
       </div>
 
       <div className="p-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Your Classes</h2>
-          <p className="text-gray-600">Select a class to start teaching with AI assistance</p>
-        </div>
 
         {/* Loading State */}
         {isLoading && (

@@ -223,13 +223,25 @@ export const getCurrentUser = async () => {
       return null;
     }
 
-    // For now, return a basic user object since we don't have a /me endpoint
-    // You can update this when you have the actual endpoint
-    return {
-      id: 'current-user',
-      email: 'user@example.com', // You might want to store email during login
-      authenticated: true
-    };
+    const response = await fetch(`${API_BASE_URL}/users/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('tokenType');
+      }
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('Current user data:', data);
+    return data;
   } catch (error) {
     console.error('Get current user error:', error);
     return null;
