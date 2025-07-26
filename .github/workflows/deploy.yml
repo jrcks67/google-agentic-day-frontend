@@ -30,7 +30,10 @@ jobs:
 
       - name: Install gsutil
         run: |
-          sudo apt-get update && sudo apt-get install -y google-cloud-sdk
+          echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+          sudo apt-get install -y apt-transport-https ca-certificates gnupg
+          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+          sudo apt-get update && sudo apt-get install -y google-cloud-cli
 
       - name: Sync build to GCS bucket
         run: |
@@ -40,7 +43,6 @@ jobs:
         run: |
           gsutil iam ch allUsers:objectViewer gs://agentic-day-frontend
 
-      # Optional: Invalidate CDN cache so users get latest changes immediately
       - name: Invalidate CDN cache
         run: |
           gcloud compute backend-buckets update frontend-static-bucket --bypass-cache
