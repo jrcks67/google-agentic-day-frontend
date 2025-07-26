@@ -5,10 +5,16 @@ import * as auth from '../utils/auth'
 // 1. Signup Hook
 export const useSignUp = () =>
   useMutation({
-    mutationFn: async ({ email, password, fullNam }) => {
+    mutationFn: async ({ email, password, fullName }) => {
       const { data, error } = await auth.signUpWithEmail(email, password, fullName);
       return { data, error };
     },
+    onSuccess: (response) => {
+      console.log('Signup response:', response);
+    },
+    onError: (error) => {
+      console.error('Signup mutation error:', error);
+    }
   })
 
 // 2. Resend Confirmation Email
@@ -32,12 +38,19 @@ export const useSignIn = () => {
       const { data, error } = await auth.signInWithEmail(email, password);
       return { data, error };
     },
-    onSuccess: () => {
-      // Invalidate queries to refresh authentication state
-      queryClient.invalidateQueries({ queryKey: ['current-user'] })
-      queryClient.invalidateQueries({ queryKey: ['is-authenticated'] })
-      queryClient.invalidateQueries({ queryKey: ['current-session'] })
-      window.location.href = '/dashboard'
+    onSuccess: (response) => {
+      console.log(response);
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      else {
+        console.log("token: " + response.data.access_token)
+        // Invalidate queries to refresh authentication state
+        queryClient.invalidateQueries({ queryKey: ['current-user'] })
+        queryClient.invalidateQueries({ queryKey: ['is-authenticated'] })
+        queryClient.invalidateQueries({ queryKey: ['current-session'] })
+        window.location.href = '/dashboard'
+      }
     }
   })
 }

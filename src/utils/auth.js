@@ -1,34 +1,84 @@
 // Auth utility functions for backend API calls
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fastapi-gcp-demo-172045447240.us-central1.run.app/';
+
+/**
+ * Get authorization header for authenticated requests
+ * @returns {Object} Authorization header object
+ */
+export const getAuthHeader = () => {
+  const token = localStorage.getItem('authToken');
+  const tokenType = localStorage.getItem('tokenType') || 'bearer';
+
+  if (!token) {
+    return {};
+  }
+
+  return {
+    'Authorization': `${tokenType} ${token}`
+  };
+};
+
+/**
+ * Make authenticated API request
+ * @param {string} url - API endpoint URL
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Response>}
+ */
+export const authenticatedFetch = async (url, options = {}) => {
+  const authHeaders = getAuthHeader();
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+      ...options.headers,
+    },
+  });
+};
 
 /**
  * Sign up with email and password
  * @param {string} email - User's email
  * @param {string} password - User's password
  * @param {string} fullName - User's full name (optional)
- * @param {string} companyName - Company name (optional)
  * @returns {Promise<{data: any, error: any}>}
  */
-export const signUpWithEmail = async (email, password, fullName = '', companyName = '') => {
+export const signUpWithEmail = async (email, password, fullName) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+    const nameParts = fullName.split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const requestBody = {
+      email,
+      password,
+      first_name: firstName,
+      last_name: lastName
+    };
+
+    console.log('Signup request:', { ...requestBody, password: '***' });
+
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include',
-      body: JSON.stringify({
-        email,
-        password,
-        full_name: fullName,
-        company_name: companyName,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();
+    console.log('Signup response:', data);
 
     if (!response.ok) {
-      return { data: null, error: { message: data.detail || 'Signup failed' } };
+      // Return the exact error message from backend
+      return {
+        data: null,
+        error: {
+          message: data.detail || `Signup failed (${response.status})`,
+          status: response.status
+        }
+      };
     }
 
     return { data, error: null };
@@ -46,33 +96,37 @@ export const signUpWithEmail = async (email, password, fullName = '', companyNam
  */
 export const signInWithEmail = async (email, password) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    // Create form data exactly like the working curl command
+    const formData = new URLSearchParams();
+    formData.append('username', email);
+    formData.append('password', password);
+
+    const response = await fetch(`${API_BASE_URL}/auth/jwt/login`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
-      credentials: 'include',
-      body: JSON.stringify({
-        email,
-        password,
-      }),
+      body: formData,
     });
 
     const data = await response.json();
+    console.log('Login response:', data);
 
     if (!response.ok) {
       return { data: null, error: { message: data.detail || 'Login failed' } };
     }
 
-    // Store access token if provided
+    // Store access token from the response format: { "access_token": "...", "token_type": "bearer" }
     if (data.access_token) {
       localStorage.setItem('authToken', data.access_token);
+      localStorage.setItem('tokenType', data.token_type || 'bearer');
+      console.log('Token stored successfully');
     }
 
     return { data, error: null };
   } catch (error) {
     console.error('Login error:', error);
-    return { data: null, error: { message: 'Network error occurred' } };
+    return { data: null, error: { message: 'Network error occurred: ' + error.message } };
   }
 };
 
@@ -82,29 +136,15 @@ export const signInWithEmail = async (email, password) => {
  */
 export const signOut = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-      },
-      credentials: 'include',
-    });
-
-    // Clear local storage regardless of response
+    // Clear tokens from localStorage
     localStorage.removeItem('authToken');
-
-    if (!response.ok) {
-      const data = await response.json();
-      return { error: { message: data.detail || 'Logout failed' } };
-    }
+    localStorage.removeItem('tokenType');
+    console.log('User signed out successfully');
 
     return { error: null };
   } catch (error) {
     console.error('Logout error:', error);
-    // Still clear token even if request fails
-    localStorage.removeItem('authToken');
-    return { error: { message: 'Network error occurred' } };
+    return { error: { message: 'Logout failed' } };
   }
 };
 
@@ -183,24 +223,13 @@ export const getCurrentUser = async () => {
       return null;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('authToken');
-      }
-      return null;
-    }
-
-    const data = await response.json();
-    return data;
+    // For now, return a basic user object since we don't have a /me endpoint
+    // You can update this when you have the actual endpoint
+    return {
+      id: 'current-user',
+      email: 'user@example.com', // You might want to store email during login
+      authenticated: true
+    };
   } catch (error) {
     console.error('Get current user error:', error);
     return null;
@@ -218,22 +247,7 @@ export const isAuthenticated = async () => {
       return false;
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('authToken');
-      }
-      return false;
-    }
-
+    // Simply check if token exists - no API call needed
     return true;
   } catch (error) {
     console.error('Authentication check error:', error);

@@ -21,20 +21,22 @@ export default function SigninPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
     try {
       const result = await signInMutation.mutateAsync({
         email: formData.email,
         password: formData.password
       });
-      
-      if (result.error) {
-        setError(result.error.message || 'Login failed');
+      // If result is falsy or contains error, show error
+      if (!result || result.error) {
+        setError((result && result.error && result.error.message) || 'Login failed');
+        return;
       }
       // Success is handled by the useSignIn hook (redirects to dashboard)
-    } catch (error) {
-      setError('An error occurred. Please try again.');
-      console.error('Signin error:', error);
+      
+    } catch (err) {
+      // If error object has a message, show it
+      setError(err?.message || 'An error occurred. Please try again.');
+      console.error('Signin error:', err);
     }
   };
 
