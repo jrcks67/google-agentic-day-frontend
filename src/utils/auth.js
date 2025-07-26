@@ -1,5 +1,5 @@
 // Auth utility functions for backend API calls
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fastapi-gcp-demo-172045447240.us-central1.run.app/';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
  * Get authorization header for authenticated requests
@@ -46,7 +46,7 @@ export const authenticatedFetch = async (url, options = {}) => {
  */
 export const signUpWithEmail = async (email, password, fullName) => {
   try {
-    const nameParts = fullName.split(' ');
+    const nameParts = fullName ? fullName.split(' ') : ['', ''];
     const firstName = nameParts[0] || '';
     const lastName = nameParts.slice(1).join(' ') || '';
 
@@ -71,15 +71,31 @@ export const signUpWithEmail = async (email, password, fullName) => {
     console.log('Signup response:', data);
 
     if (!response.ok) {
-      // Return the exact error message from backend
+      // Handle specific error cases
+      let errorMessage = 'Registration failed';
+
+      if (data.detail) {
+        if (typeof data.detail === 'string') {
+          errorMessage = data.detail;
+        } else if (data.detail.includes && data.detail.includes('REGISTER_USER_ALREADY_EXISTS')) {
+          errorMessage = 'User with this email already exists';
+        } else {
+          errorMessage = data.detail;
+        }
+      }
+
       return {
         data: null,
         error: {
-          message: data.detail || `Signup failed (${response.status})`,
+          message: errorMessage,
           status: response.status
         }
       };
     }
+
+    // Store user email for potential future use
+    localStorage.setItem('signupEmail', email);
+    console.log('Signup successful for:', email);
 
     return { data, error: null };
   } catch (error) {
@@ -101,6 +117,8 @@ export const signInWithEmail = async (email, password) => {
     formData.append('username', email);
     formData.append('password', password);
 
+    console.log('Login request to:', `${API_BASE_URL}/auth/jwt/login`);
+
     const response = await fetch(`${API_BASE_URL}/auth/jwt/login`, {
       method: 'POST',
       headers: {
@@ -113,14 +131,32 @@ export const signInWithEmail = async (email, password) => {
     console.log('Login response:', data);
 
     if (!response.ok) {
-      return { data: null, error: { message: data.detail || 'Login failed' } };
+      let errorMessage = 'Login failed';
+
+      if (data.detail) {
+        errorMessage = data.detail;
+      } else if (response.status === 401) {
+        errorMessage = 'Invalid email or password';
+      } else if (response.status === 422) {
+        errorMessage = 'Please check your email and password';
+      }
+
+      return { data: null, error: { message: errorMessage, status: response.status } };
     }
 
     // Store access token from the response format: { "access_token": "...", "token_type": "bearer" }
     if (data.access_token) {
       localStorage.setItem('authToken', data.access_token);
       localStorage.setItem('tokenType', data.token_type || 'bearer');
-      console.log('Token stored successfully');
+
+      // Store user email for later use
+      localStorage.setItem('userEmail', email);
+
+      console.log('Token stored successfully:', data.token_type, data.access_token.substring(0, 20) + '...');
+      console.log('User email stored:', email);
+    } else {
+      console.error('No access token in response:', data);
+      return { data: null, error: { message: 'Invalid response from server' } };
     }
 
     return { data, error: null };
@@ -136,15 +172,64 @@ export const signInWithEmail = async (email, password) => {
  */
 export const signOut = async () => {
   try {
+    const token = localStorage.getItem('authToken');
+    const tokenType = localStorage.getItem('tokenType') || 'bearer';
+
+    if (token) {
+      console.log('Calling logout API with token:', token.substring(0, 20) + '...');
+
+      try {
+        // Call the logout API endpoint
+        const response = await fetch(`${API_BASE_URL}/auth/jwt/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `${tokenType} ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        console.log('Logout API response status:', response.status);
+
+        // Even if the API call fails, we still want to clear local storage
+        if (!response.ok) {
+          console.warn('Logout API failed, but continuing with local cleanup');
+        } else {
+          console.log('Logout API call successful');
+        }
+      } catch (apiError) {
+        console.error('Logout API error:', apiError);
+        console.log('Continuing with local storage cleanup despite API error');
+      }
+    }
+
     // Clear tokens from localStorage
     localStorage.removeItem('authToken');
     localStorage.removeItem('tokenType');
-    console.log('User signed out successfully');
+
+    // Clear any other user-related data
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('signupEmail');
+
+    console.log('User signed out successfully - all tokens and data cleared');
 
     return { error: null };
   } catch (error) {
     console.error('Logout error:', error);
-    return { error: { message: 'Logout failed' } };
+
+    // Even if there's an error, try to clear localStorage
+    try {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('tokenType');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('signupEmail');
+      console.log('Emergency cleanup: localStorage cleared');
+    } catch (cleanupError) {
+      console.error('Failed to clear localStorage:', cleanupError);
+    }
+
+    return { error: { message: 'Logout failed but local data cleared' } };
   }
 };
 
@@ -219,16 +304,18 @@ export const resendConfirmationEmail = async (email) => {
 export const getCurrentUser = async () => {
   try {
     const token = localStorage.getItem('authToken');
+    const userEmail = localStorage.getItem('userEmail');
+
     if (!token) {
       return null;
     }
 
-    // For now, return a basic user object since we don't have a /me endpoint
-    // You can update this when you have the actual endpoint
+    // Return user object with stored information
     return {
       id: 'current-user',
-      email: 'user@example.com', // You might want to store email during login
-      authenticated: true
+      email: userEmail || 'user@example.com',
+      authenticated: true,
+      token: token.substring(0, 20) + '...' // Partial token for debugging
     };
   } catch (error) {
     console.error('Get current user error:', error);
@@ -243,11 +330,28 @@ export const getCurrentUser = async () => {
 export const isAuthenticated = async () => {
   try {
     const token = localStorage.getItem('authToken');
+    const tokenType = localStorage.getItem('tokenType');
+
+    console.log('isAuthenticated check:', {
+      hasToken: !!token,
+      tokenType,
+      tokenPreview: token ? token.substring(0, 20) + '...' : null
+    });
+
     if (!token) {
+      console.log('isAuthenticated: No token found');
       return false;
     }
 
-    // Simply check if token exists - no API call needed
+    // Check if token is not empty and has reasonable length
+    if (token.length < 10) {
+      console.log('isAuthenticated: Token too short, removing');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('tokenType');
+      return false;
+    }
+
+    console.log('isAuthenticated: Token exists and valid');
     return true;
   } catch (error) {
     console.error('Authentication check error:', error);

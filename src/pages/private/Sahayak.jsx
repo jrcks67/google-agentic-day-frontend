@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Classes from './chat/Classes';
 import Chat from './chat/Chat';
-import { signOut } from '../../utils/auth';
+import { useSignOut } from '../../hooks/useAuth';
 
 const Sahayak = () => {
   const [selectedClass, setSelectedClass] = useState(null);
   const navigate = useNavigate();
+  const signOutMutation = useSignOut();
 
   const handleSelectClass = (classData) => {
     setSelectedClass(classData);
@@ -18,10 +19,11 @@ const Sahayak = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      navigate('/signin');
+      console.log('Sahayak: Starting logout...');
+      await signOutMutation.mutateAsync();
+      // The useSignOut hook will handle navigation automatically
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('Sahayak: Logout failed:', error);
       // Still navigate to signin even if logout fails
       navigate('/signin');
     }

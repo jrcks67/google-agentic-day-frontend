@@ -1,9 +1,28 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { BookOpen, Brain, Globe, FileText, BarChart3, Sparkles, Target, Rocket } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useIsAuthenticated } from '../../hooks/useAuth';
 
 const HomePage = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+  const { data: isAuthenticated, isLoading: authLoading } = useIsAuthenticated();
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('User already authenticated, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">

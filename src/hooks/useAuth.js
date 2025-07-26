@@ -58,17 +58,34 @@ export const useSignIn = () => {
 // 5. Sign Out
 export const useSignOut = () => {
   const queryClient = useQueryClient()
-  
+
   return useMutation({
     mutationFn: async () => {
+      console.log('useSignOut: Starting logout process...');
       const { error } = await auth.signOut();
+      if (error) {
+        console.error('useSignOut: Logout error:', error);
+        throw new Error(error.message);
+      }
+      console.log('useSignOut: Logout successful');
       return { error };
     },
     onSuccess: () => {
-      // Invalidate all auth-related queries using v5 syntax
+      console.log('useSignOut: Cleaning up React Query cache...');
+      // Invalidate all auth-related queries
       queryClient.invalidateQueries({ queryKey: ['current-user'] })
       queryClient.invalidateQueries({ queryKey: ['is-authenticated'] })
       queryClient.invalidateQueries({ queryKey: ['current-session'] })
+
+      // Clear all cached data
+      queryClient.clear()
+
+      console.log('useSignOut: Redirecting to signin page...');
+      window.location.href = '/signin'
+    },
+    onError: (error) => {
+      console.error('useSignOut: Mutation error:', error);
+      // Even if logout fails, clear cache and redirect
       queryClient.clear()
       window.location.href = '/signin'
     }
@@ -93,8 +110,13 @@ export const useCurrentUser = () =>
 export const useIsAuthenticated = () =>
   useQuery({
     queryKey: ['is-authenticated'],
-    queryFn: auth.isAuthenticated,
+    queryFn: async () => {
+      const result = await auth.isAuthenticated();
+      console.log('useIsAuthenticated query result:', result);
+      return result;
+    },
     staleTime: 1000 * 60 * 2,
+    retry: false, // Don't retry auth checks
   })
 
 // 9. Get Current Session

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useSignUp } from '../../hooks/useAuth';
+import { useSignUp, useIsAuthenticated } from '../../hooks/useAuth';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -14,6 +14,24 @@ export default function SignUp() {
 
   const navigate = useNavigate();
   const signUpMutation = useSignUp();
+  const { data: isAuthenticated, isLoading: authLoading } = useIsAuthenticated();
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('User already authenticated, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   const handleChange = (e) => {
     setFormData({
@@ -39,12 +57,19 @@ export default function SignUp() {
       // Check if signup was successful
       if (response && !response.error) {
         setSuccess(true);
-        // Redirect to signin page after 2 seconds
+        console.log('Signup successful, redirecting to signin...');
+        // Redirect to signin page after 3 seconds
         setTimeout(() => {
-          navigate('/signin');
-        }, 2000);
+          navigate('/signin', {
+            state: {
+              message: 'Account created successfully! Please sign in.',
+              email: formData.email
+            }
+          });
+        }, 3000);
       } else if (response && response.error) {
         // Show the exact error message from backend
+        console.error('Signup error:', response.error);
         setError(response.error.message);
       }
     } catch (error) {

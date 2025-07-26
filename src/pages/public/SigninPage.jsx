@@ -1,14 +1,48 @@
-import { useState } from 'react';
-import { useSignIn } from '../../hooks/useAuth';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useSignIn, useIsAuthenticated } from '../../hooks/useAuth';
 
 export default function SigninPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const signInMutation = useSignIn();
+  const { data: isAuthenticated, isLoading: authLoading } = useIsAuthenticated();
+
+  // Check for success message from signup (must be before any conditional returns)
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+      if (location.state?.email) {
+        setFormData(prev => ({ ...prev, email: location.state.email }));
+      }
+      // Clear the message after 5 seconds
+      setTimeout(() => setSuccessMessage(''), 5000);
+    }
+  }, [location.state]);
+
+  // Redirect to dashboard if already authenticated (must be before any conditional returns)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('User already authenticated, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   const handleChange = (e) => {
     setFormData({
@@ -48,6 +82,12 @@ export default function SigninPage() {
           <p className="text-gray-600 mt-2">Sign in to your account</p>
         </div>
         
+        {successMessage && (
+          <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-600">{successMessage}</p>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600">{error}</p>

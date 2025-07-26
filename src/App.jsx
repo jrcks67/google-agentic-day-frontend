@@ -29,7 +29,7 @@ const App = () => {
             <Route path="/" element={<Home />} />
             <Route path="/signin" element={<SigninPage />} />
             <Route path="/signup" element={<SignupPage />} />
-            
+
             {/* Protected routes */}
             <Route element={<ProtectedRoutes />}>
               <Route path="/dashboard" element={<Sahayak />} />
