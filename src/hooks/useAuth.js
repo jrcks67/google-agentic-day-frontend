@@ -10,7 +10,10 @@ export const useSignUp = () =>
       return { data, error };
     },
     onSuccess: (response) => {
-      console.log('Signup response: ' + response);
+      console.log('Signup response:', response);
+    },
+    onError: (error) => {
+      console.error('Signup mutation error:', error);
     }
   })
 
