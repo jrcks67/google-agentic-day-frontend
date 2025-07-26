@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronRight, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // Mock data for classes
 const mockClasses = [
@@ -24,6 +25,13 @@ const mockClasses = [
 ];
 
 const Classes = ({ onSelectClass }) => {
+  const navigate = useNavigate()
+  
+
+  const handleClick = () => {
+    navigate("/create-class")
+  }
+
   const ClassCard = ({ classData, onClick }) => (
     <div 
       onClick={() => onClick(classData)}
@@ -67,7 +75,7 @@ const Classes = ({ onSelectClass }) => {
             <p className="text-gray-600">AI Teaching Assistant for Multi-Grade Classrooms</p>
           </div>
           <div className="flex items-center space-x-4">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button onClick={handleClick} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
               <Plus size={16} />
               <span>Create New Class</span>
             </button>

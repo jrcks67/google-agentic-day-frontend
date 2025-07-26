@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, ArrowRight, Plus, X, Users, BookOpen, 
   Upload, FileText, Check, User, GraduationCap, School
 } from 'lucide-react';
+
 
 const CreateClass = ({ onBack, onClassCreated }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -34,6 +36,11 @@ const CreateClass = ({ onBack, onClassCreated }) => {
 
   const languages = ['Hindi', 'English', 'Gujarati', 'Marathi', 'Bengali'];
   const grades = ['1', '2', '3', '4', '5'];
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    navigate(-1); // Go back to previous page
+  }
 
   // Simulate API call for adding student
   const addStudentToBackend = async (studentData) => {
@@ -582,7 +589,7 @@ const CreateClass = ({ onBack, onClassCreated }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
-              onClick={onBack}
+              onClick={handleBack}
               className="p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100"
             >
               <ArrowLeft size={20} />
@@ -607,7 +614,7 @@ const CreateClass = ({ onBack, onClassCreated }) => {
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <button
-            onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : onBack()}
+            onClick={() => currentStep > 1 ? setCurrentStep(currentStep - 1) : handleBack()}
             className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
           >
             <ArrowLeft size={16} />

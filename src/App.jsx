@@ -7,6 +7,7 @@ import Home from './pages/public/Home'
 import SigninPage from './pages/public/SigninPage'
 import SignupPage from './pages/public/SignupPage'
 import Sahayak from './pages/private/Sahayak'
+import CreateClass from './pages/private/chat/CreateClass'
 
 
 // Create a React Query client
@@ -29,6 +30,7 @@ const App = () => {
             <Route path="/" element={<Home />} />
             <Route path="/signin" element={<SigninPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/create-class" element={<CreateClass />} />
 
             {/* Protected routes */}
             <Route element={<ProtectedRoutes />}>
