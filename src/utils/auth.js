@@ -1,5 +1,5 @@
 // Auth utility functions for backend API calls
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://fastapi-gcp-demo-172045447240.us-central1.run.app/';
 
 /**
  * Sign up with email and password
@@ -9,9 +9,11 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
  * @param {string} companyName - Company name (optional)
  * @returns {Promise<{data: any, error: any}>}
  */
-export const signUpWithEmail = async (email, password, fullName = '', companyName = '') => {
+export const signUpWithEmail = async (email, password, fullName) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+    var firstname = fullName.split(' ')[0];
+    var lastname = fullName.split(' ')[1];
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -20,10 +22,12 @@ export const signUpWithEmail = async (email, password, fullName = '', companyNam
       body: JSON.stringify({
         email,
         password,
-        full_name: fullName,
-        company_name: companyName,
+        first_name: firstname,
+        last_name: lastname
       }),
-    });
+    })
+    .then(data => console.log(data))
+    .catch(error => console.error('Signup error:', error));
 
     const data = await response.json();
 
@@ -46,7 +50,7 @@ export const signUpWithEmail = async (email, password, fullName = '', companyNam
  */
 export const signInWithEmail = async (email, password) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    const response = await fetch(`${API_BASE_URL}/auth/jwt/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,7 +60,9 @@ export const signInWithEmail = async (email, password) => {
         email,
         password,
       }),
-    });
+    })
+    .then(data => console.log(data))
+    .catch(error => console.error('SignIn error:', error));
 
     const data = await response.json();
 
@@ -72,7 +78,7 @@ export const signInWithEmail = async (email, password) => {
     return { data, error: null };
   } catch (error) {
     console.error('Login error:', error);
-    return { data: null, error: { message: 'Network error occurred' } };
+    return { data: null, error: { message: 'Network error occurred: ' + error } };
   }
 };
 

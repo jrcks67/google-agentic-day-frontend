@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useSignUp } from '../../hooks/useAuth';
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -10,6 +11,8 @@ export default function SignUp() {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
+  const signUpMutation = useSignUp();
+  
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -23,18 +26,17 @@ export default function SignUp() {
     
     try {
       // API call to your backend server
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      const response = await signUpMutation.mutateAsync({
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.name
       });
       
       if (response.ok) {
         setEmailSent(true);
       }
     } catch (error) {
+      setError('An error occurred. Please try again.');
       console.error('Signup error:', error);
     } finally {
       setLoading(false);
