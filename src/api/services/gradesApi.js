@@ -231,5 +231,86 @@ export const gradesApi = {
         }
       };
     }
+  },
+
+  /**
+   * Create a new student
+   *
+   * @param {Object} studentData - Student data
+   * @param {String} studentData.first_name - Student's first name (required)
+   * @param {String} studentData.last_name - Student's last name (required)
+   * @param {String} studentData.email - Student's email (required)
+   * @param {String} studentData.grade_id - Grade ID (required)
+   * @param {String} [studentData.phone_number] - Student's phone number (optional)
+   * @param {String} [studentData.parent_name] - Parent's name (optional)
+   * @param {String} [studentData.parent_email] - Parent's email (optional)
+   * @param {String} [studentData.parent_phone] - Parent's phone (optional)
+   * @param {String} [studentData.address] - Student's address (optional)
+   * @param {String} [studentData.date_of_birth] - Date of birth (optional)
+   * @param {String} [studentData.emergency_contact] - Emergency contact (optional)
+   * @param {String} [studentData.emergency_phone] - Emergency phone (optional)
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with created student or error
+   */
+  createStudent: async (studentData) => {
+    try {
+      const response = await gradesClient.post("/students/", studentData);
+      return { data: response.data, error: null };
+    } catch (error) {
+      console.error("Create student error:", error);
+      return {
+        data: null,
+        error: {
+          message: error.response?.data?.message || error.response?.data?.detail || "Failed to create student",
+          status: error.response?.status,
+          originalError: error
+        }
+      };
+    }
+  },
+
+  /**
+   * Get students by grade
+   *
+   * @param {String} gradeId - The grade ID
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with students list or error
+   */
+  getStudentsByGrade: async (gradeId) => {
+    try {
+      const response = await gradesClient.get(`/students/by-grade/${gradeId}`);
+      return { data: response.data, error: null };
+    } catch (error) {
+      console.error("Get students by grade error:", error);
+      return {
+        data: null,
+        error: {
+          message: error.response?.data?.message || error.response?.data?.detail || "Failed to get students",
+          status: error.response?.status,
+          originalError: error
+        }
+      };
+    }
+  },
+
+  /**
+   * Get grade with subjects
+   *
+   * @param {String} gradeId - The grade ID
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with grade and subjects or error
+   */
+  getGradeWithSubjects: async (gradeId) => {
+    try {
+      const response = await gradesClient.get(`/grades/${gradeId}/subjects`);
+      return { data: response.data, error: null };
+    } catch (error) {
+      console.error("Get grade with subjects error:", error);
+      return {
+        data: null,
+        error: {
+          message: error.response?.data?.message || error.response?.data?.detail || "Failed to get grade subjects",
+          status: error.response?.status,
+          originalError: error
+        }
+      };
+    }
   }
 };
