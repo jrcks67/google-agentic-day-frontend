@@ -1,33 +1,57 @@
 import { chatClient } from "../apiClients";
+import { 
+  validateCreateFeedRequest, 
+  validateChatMessageRequest,
+  transformToCreateFeedRequest,
+  transformToChatMessageRequest,
+  logValidationErrors 
+} from "../../utils/schemaValidation";
 
 /**
  * Chat API Service
- * Provides methods for interacting with chat AI endpoints
+ * Provides methods for interacting with chat backend endpoints
  */
 export const chatApi = {
   /**
-   * Send a prompt to the chat service and get an AI response
+   * Create a new feed (chat session)
    * 
-   * @param {Object} params - Request parameters
-   * @param {String} params.prompt - The user's message or prompt
-   * @param {String} [params.conversationId] - Optional conversation ID for context
-   * @param {Object} [params.options] - Optional configuration parameters
-   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with AI reply or error
+   * @param {Object} feedData - Feed creation data
+   * @param {String} feedData.userId - User ID
+   * @param {String} feedData.classId - Class ID
+   * @param {String} feedData.title - Feed title
+   * @param {String} feedData.contextData - Context text data
+   * @param {Array} feedData.contextFiles - Array of file names
+   * @param {Array} feedData.selectedAgents - Array of agent types
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with new feed or error
    */
-  sendPrompt: async ({ prompt, conversationId, options = {} }) => {
+  createFeed: async (feedData) => {
     try {
-      const response = await chatClient.post("/", { 
-        prompt, 
-        conversation_id: conversationId,
-        ...options 
-      });
+      // Validate the input data before sending
+      const validation = validateCreateFeedRequest(feedData);
+      if (!validation.isValid) {
+        logValidationErrors('createFeed', validation.errors);
+        return { 
+          data: null, 
+          error: {
+            message: `Schema validation failed: ${validation.errors.join(', ')}`,
+            status: 400,
+            validationErrors: validation.errors
+          } 
+        };
+      }
+
+      // Transform to API format
+      const apiData = transformToCreateFeedRequest(feedData);
+      console.log('Sending createFeed request with validated data:', apiData);
+
+      const response = await chatClient.post("/feeds", apiData);
       return { data: response.data, error: null };
     } catch (error) {
-      console.error("Chat API error:", error);
+      console.error("Create feed error:", error);
       return { 
         data: null, 
         error: {
-          message: error.response?.data?.message || error.response?.data?.detail || "Failed to communicate with chat service",
+          message: error.response?.data?.detail || error.message || "Failed to create feed",
           status: error.response?.status,
           originalError: error
         } 
@@ -36,21 +60,21 @@ export const chatApi = {
   },
 
   /**
-   * Get chat history for a conversation
+   * Get all prompts for a specific feed
    * 
-   * @param {String} conversationId - The conversation ID
-   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with chat history or error
+   * @param {String} feedId - The feed ID
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with feed prompts or error
    */
-  getChatHistory: async (conversationId) => {
+  getFeedPrompts: async (feedId) => {
     try {
-      const response = await chatClient.get(`/history/${conversationId}`);
+      const response = await chatClient.get(`/feeds/${feedId}/prompts`);
       return { data: response.data, error: null };
     } catch (error) {
-      console.error("Get chat history error:", error);
+      console.error("Get feed prompts error:", error);
       return { 
         data: null, 
         error: {
-          message: error.response?.data?.message || error.response?.data?.detail || "Failed to get chat history",
+          message: error.response?.data?.detail || error.message || "Failed to get feed prompts",
           status: error.response?.status,
           originalError: error
         } 
@@ -59,94 +83,46 @@ export const chatApi = {
   },
 
   /**
-   * Get all conversations for the current user
+   * Create a new prompt entry
    * 
-   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with conversations or error
+   * @param {Object} promptData - Prompt creation data
+   * @param {String} promptData.feedId - Feed ID
+   * @param {String} promptData.userPrompt - User's prompt text
+   * @param {String} promptData.selectedAgent - Selected agent type
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with new prompt or error
    */
-  getConversations: async () => {
+  createPrompt: async (promptData) => {
     try {
-      const response = await chatClient.get("/conversations");
-      return { data: response.data, error: null };
-    } catch (error) {
-      console.error("Get conversations error:", error);
-      return { 
-        data: null, 
-        error: {
-          message: error.response?.data?.message || error.response?.data?.detail || "Failed to get conversations",
-          status: error.response?.status,
-          originalError: error
-        } 
-      };
-    }
-  },
+      // Validate the input data before sending
+      const validation = validateChatMessageRequest(promptData);
+      if (!validation.isValid) {
+        logValidationErrors('createPrompt', validation.errors);
+        return { 
+          data: null, 
+          error: {
+            message: `Schema validation failed: ${validation.errors.join(', ')}`,
+            status: 400,
+            validationErrors: validation.errors
+          } 
+        };
+      }
 
-  /**
-   * Create a new conversation
-   * 
-   * @param {String} title - The conversation title
-   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with new conversation or error
-   */
-  createConversation: async (title) => {
-    try {
-      const response = await chatClient.post("/conversations", { title });
-      return { data: response.data, error: null };
-    } catch (error) {
-      console.error("Create conversation error:", error);
-      return { 
-        data: null, 
-        error: {
-          message: error.response?.data?.message || error.response?.data?.detail || "Failed to create conversation",
-          status: error.response?.status,
-          originalError: error
-        } 
-      };
-    }
-  },
+      // Transform to API format
+      const apiData = transformToChatMessageRequest(promptData);
+      console.log('Sending createPrompt request with validated data:', apiData);
 
-  /**
-   * Delete a conversation
-   * 
-   * @param {String} conversationId - The conversation ID to delete
-   * @returns {Promise<{data: Object|null, error: Error|null}>} Response or error
-   */
-  deleteConversation: async (conversationId) => {
-    try {
-      const response = await chatClient.delete(`/conversations/${conversationId}`);
+      const response = await chatClient.post("/prompts", apiData);
       return { data: response.data, error: null };
     } catch (error) {
-      console.error("Delete conversation error:", error);
+      console.error("Create prompt error:", error);
       return { 
         data: null, 
         error: {
-          message: error.response?.data?.message || error.response?.data?.detail || "Failed to delete conversation",
-          status: error.response?.status,
-          originalError: error
-        } 
-      };
-    }
-  },
-
-  /**
-   * Update conversation title
-   * 
-   * @param {String} conversationId - The conversation ID
-   * @param {String} title - The new title
-   * @returns {Promise<{data: Object|null, error: Error|null}>} Response or error
-   */
-  updateConversation: async (conversationId, title) => {
-    try {
-      const response = await chatClient.put(`/conversations/${conversationId}`, { title });
-      return { data: response.data, error: null };
-    } catch (error) {
-      console.error("Update conversation error:", error);
-      return { 
-        data: null, 
-        error: {
-          message: error.response?.data?.message || error.response?.data?.detail || "Failed to update conversation",
+          message: error.response?.data?.detail || error.message || "Failed to create prompt",
           status: error.response?.status,
           originalError: error
         } 
       };
     }
   }
-};
+}
