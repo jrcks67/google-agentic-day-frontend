@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, ArrowRight, Plus, X, Users, BookOpen, 
+import {
+  ArrowLeft, ArrowRight, Plus, X, Users, BookOpen,
   Upload, FileText, Check, User, GraduationCap, School
 } from 'lucide-react';
+import { gradesApi } from '../../../api/services/gradesApi';
 
 
 const CreateClass = ({ onBack, onClassCreated }) => {
@@ -11,7 +12,7 @@ const CreateClass = ({ onBack, onClassCreated }) => {
   const [classData, setClassData] = useState({
     name: '',
     grade: '',
-    studentCount: ''
+    academic_year: ''
   });
   const [students, setStudents] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -23,9 +24,16 @@ const CreateClass = ({ onBack, onClassCreated }) => {
   const [currentSubject, setCurrentSubject] = useState({
     name: '',
     description: '',
-    files: []
+    files: [], // Will store actual File objects
+    fileDescriptions: {} // Map of file names to descriptions
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingClass, setIsCreatingClass] = useState(false);
+  const [isCreatingSubject, setIsCreatingSubject] = useState(false);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const [subjectError, setSubjectError] = useState(null);
+  const [createdClassId, setCreatedClassId] = useState(null);
   const fileInputRef = useRef(null);
 
   const steps = [
@@ -35,7 +43,10 @@ const CreateClass = ({ onBack, onClassCreated }) => {
   ];
 
   const languages = ['Hindi', 'English', 'Gujarati', 'Marathi', 'Bengali'];
-  const grades = ['1', '2', '3', '4', '5'];
+  const grades = [
+    'Class I', 'Class II', 'Class III', 'Class IV', 'Class V',
+    'Class VI', 'Class VII', 'Class VIII', 'Class IX', 'Class X'
+  ];
   const navigate = useNavigate();
 
   const handleBack = () => {
@@ -68,35 +79,108 @@ const CreateClass = ({ onBack, onClassCreated }) => {
     setStudents(students.filter(s => s.id !== studentId));
   };
 
-  const handleAddSubject = () => {
+  const handleAddSubject = async () => {
     if (!currentSubject.name.trim()) return;
-    
-    const newSubject = {
-      id: subjects.length + 1,
-      ...currentSubject
-    };
-    setSubjects([...subjects, newSubject]);
-    setCurrentSubject({ name: '', description: '', files: [] });
+
+    setIsCreatingSubject(true);
+    setSubjectError(null);
+
+    try {
+      // Step 1: Create the subject
+      const { data: subjectData, error: subjectError } = await gradesApi.createSubject({
+        name: currentSubject.name,
+        description: currentSubject.description
+      });
+
+      if (subjectError) {
+        setSubjectError(subjectError.message);
+        return;
+      }
+
+      if (!subjectData?.success || !subjectData?.data) {
+        setSubjectError("Failed to create subject");
+        return;
+      }
+
+      const createdSubject = subjectData.data;
+
+      // Step 2: Upload files if any
+      const uploadedFiles = [];
+      if (currentSubject.files.length > 0) {
+        setIsUploadingFiles(true);
+
+        for (const file of currentSubject.files) {
+          const description = currentSubject.fileDescriptions[file.name] || `${currentSubject.name} document`;
+
+          const { data: uploadData, error: uploadError } = await gradesApi.uploadSubjectDocument(
+            createdSubject.id,
+            file,
+            description
+          );
+
+          if (uploadError) {
+            console.error(`Failed to upload ${file.name}:`, uploadError.message);
+            // Continue with other files even if one fails
+          } else if (uploadData?.success && uploadData?.data) {
+            uploadedFiles.push({
+              id: uploadData.data.file_upload_id,
+              name: uploadData.data.filename,
+              url: uploadData.data.document_url,
+              size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
+              type: file.type.split('/')[1] || 'unknown'
+            });
+          }
+        }
+      }
+
+      // Add the subject to the list with uploaded files
+      const newSubject = {
+        id: createdSubject.id,
+        name: createdSubject.name,
+        description: createdSubject.description,
+        files: uploadedFiles,
+        created_at: createdSubject.created_at
+      };
+
+      setSubjects([...subjects, newSubject]);
+      setCurrentSubject({ name: '', description: '', files: [], fileDescriptions: {} });
+
+    } catch (error) {
+      setSubjectError("Network error occurred");
+      console.error("Subject creation error:", error);
+    } finally {
+      setIsCreatingSubject(false);
+      setIsUploadingFiles(false);
+    }
   };
 
   const handleSubjectFileUpload = (event) => {
     const files = Array.from(event.target.files);
-    const newFiles = files.map((file, index) => ({
-      id: currentSubject.files.length + index + 1,
-      name: file.name,
-      size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
-      type: file.type.split('/')[1] || 'unknown'
-    }));
+
+    // Store actual File objects for API upload
     setCurrentSubject({
       ...currentSubject,
-      files: [...currentSubject.files, ...newFiles]
+      files: [...currentSubject.files, ...files]
     });
   };
 
-  const removeSubjectFile = (fileId) => {
+  const removeSubjectFile = (fileName) => {
     setCurrentSubject({
       ...currentSubject,
-      files: currentSubject.files.filter(f => f.id !== fileId)
+      files: currentSubject.files.filter(f => f.name !== fileName),
+      fileDescriptions: Object.fromEntries(
+        Object.entries(currentSubject.fileDescriptions).filter(([name]) => name !== fileName)
+      )
+    });
+  };
+
+  const updateFileDescription = (fileName, description) => {
+    setCurrentSubject({
+      ...currentSubject,
+      fileDescriptions: {
+        ...currentSubject.fileDescriptions,
+        [fileName]: description
+      }
     });
   };
 
@@ -122,24 +206,25 @@ const CreateClass = ({ onBack, onClassCreated }) => {
   const handleCreateClass = async () => {
     setIsSubmitting(true);
     try {
-      // Simulate API call to create class
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // The class was already created in step 1, now we just finalize with subjects and students
       const totalFiles = subjects.reduce((total, subject) => total + subject.files.length, 0);
-      
+
       const newClass = {
-        id: Date.now(),
+        id: createdClassId || Date.now(), // Use the API-created class ID
         name: classData.name,
         grades: [classData.grade],
         studentCount: students.length,
         subjects: subjects.map(s => s.name),
         documents: totalFiles,
-        lastActivity: new Date().toISOString()
+        lastActivity: new Date().toISOString(),
+        academic_year: classData.academic_year
       };
-      
+
+      // Here you could make additional API calls to add subjects and students
+      // For now, we'll just complete the flow
       onClassCreated(newClass);
     } catch (error) {
-      console.error('Failed to create class:', error);
+      console.error('Failed to finalize class:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -148,13 +233,57 @@ const CreateClass = ({ onBack, onClassCreated }) => {
   const canProceedToNext = () => {
     switch (currentStep) {
       case 1:
-        return classData.name.trim() && classData.grade && classData.studentCount;
+        return classData.name.trim() && classData.grade && classData.academic_year.trim();
       case 2:
         return subjects.length > 0;
       case 3:
         return students.length > 0;
       default:
         return false;
+    }
+  };
+
+  // Handle creating class via API when moving from step 1 to step 2
+  const handleCreateClassAPI = async () => {
+    setIsCreatingClass(true);
+    setApiError(null);
+
+    try {
+      const { data, error } = await gradesApi.createClass({
+        name: classData.name,
+        grade: classData.grade,
+        academic_year: classData.academic_year
+      });
+
+      if (error) {
+        setApiError(error.message);
+        return false;
+      }
+
+      if (data && data.success && data.data) {
+        setCreatedClassId(data.data.id);
+        return true;
+      } else {
+        setApiError("Failed to create class");
+        return false;
+      }
+    } catch (error) {
+      setApiError("Network error occurred");
+      return false;
+    } finally {
+      setIsCreatingClass(false);
+    }
+  };
+
+  // Handle next step with API call for step 1
+  const handleNextStep = async () => {
+    if (currentStep === 1) {
+      const success = await handleCreateClassAPI();
+      if (success) {
+        setCurrentStep(currentStep + 1);
+      }
+    } else {
+      setCurrentStep(currentStep + 1);
     }
   };
 
@@ -239,19 +368,27 @@ const CreateClass = ({ onBack, onClassCreated }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Expected Number of Students
+                      Academic Year
                     </label>
                     <input
-                      type="number"
-                      value={classData.studentCount}
-                      onChange={(e) => setClassData({...classData, studentCount: e.target.value})}
-                      placeholder="Enter number"
-                      min="1"
-                      max="100"
+                      type="text"
+                      value={classData.academic_year}
+                      onChange={(e) => setClassData({...classData, academic_year: e.target.value})}
+                      placeholder="e.g., 2024-25"
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
+
+                {/* Error Display */}
+                {apiError && (
+                  <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center">
+                      <X className="w-5 h-5 text-red-500 mr-2" />
+                      <p className="text-red-700 text-sm">{apiError}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -326,20 +463,31 @@ const CreateClass = ({ onBack, onClassCreated }) => {
                   {currentSubject.files.length > 0 && (
                     <div className="mt-4">
                       <p className="text-sm font-medium text-gray-700 mb-2">Selected Files:</p>
-                      <div className="space-y-2">
-                        {currentSubject.files.map(file => (
-                          <div key={file.id} className="flex items-center justify-between bg-white p-2 rounded border">
-                            <div className="flex items-center space-x-2">
-                              <FileText size={16} className="text-blue-500" />
-                              <span className="text-sm text-gray-900">{file.name}</span>
-                              <span className="text-xs text-gray-500">{file.size}</span>
+                      <div className="space-y-3">
+                        {currentSubject.files.map((file, index) => (
+                          <div key={`${file.name}-${index}`} className="bg-white p-3 rounded border">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                <FileText size={16} className="text-blue-500" />
+                                <span className="text-sm text-gray-900">{file.name}</span>
+                                <span className="text-xs text-gray-500">
+                                  {(file.size / 1024 / 1024).toFixed(1)} MB
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => removeSubjectFile(file.name)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => removeSubjectFile(file.id)}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <X size={16} />
-                            </button>
+                            <input
+                              type="text"
+                              placeholder="Enter file description (optional)"
+                              value={currentSubject.fileDescriptions[file.name] || ''}
+                              onChange={(e) => updateFileDescription(file.name, e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
                           </div>
                         ))}
                       </div>
@@ -350,13 +498,34 @@ const CreateClass = ({ onBack, onClassCreated }) => {
                 <div className="flex justify-end">
                   <button
                     onClick={handleAddSubject}
-                    disabled={!currentSubject.name.trim()}
+                    disabled={!currentSubject.name.trim() || isCreatingSubject || isUploadingFiles}
                     className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
-                    <Plus size={16} />
-                    <span>Add Subject</span>
+                    {isCreatingSubject || isUploadingFiles ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>
+                          {isCreatingSubject ? 'Creating Subject...' : 'Uploading Files...'}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={16} />
+                        <span>Add Subject</span>
+                      </>
+                    )}
                   </button>
                 </div>
+
+                {/* Subject Error Display */}
+                {subjectError && (
+                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center">
+                      <X className="w-5 h-5 text-red-500 mr-2" />
+                      <p className="text-red-700 text-sm">{subjectError}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Subjects List */}
@@ -624,12 +793,21 @@ const CreateClass = ({ onBack, onClassCreated }) => {
           <div className="flex items-center space-x-4">
             {currentStep < 3 ? (
               <button
-                onClick={() => setCurrentStep(currentStep + 1)}
-                disabled={!canProceedToNext()}
+                onClick={handleNextStep}
+                disabled={!canProceedToNext() || isCreatingClass}
                 className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                <span>Next</span>
-                <ArrowRight size={16} />
+                {isCreatingClass && currentStep === 1 ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Creating Class...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Next</span>
+                    <ArrowRight size={16} />
+                  </>
+                )}
               </button>
             ) : (
               <button

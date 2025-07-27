@@ -36,4 +36,12 @@ export const authClient = createPublicApiClient({
   baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/auth`,
 });
 
+/**
+ * Grades API client
+ * Base client for grades/classes endpoints (requires authentication)
+ */
+export const gradesClient = createApiClient({
+  baseURL: `${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api`,
+});
+
 // Add more API clients as needed for different resource types
