@@ -81,6 +81,23 @@ export const useChat = (initialConfig = null) => {
       const feedId = feedResponse.feed_id;
       console.log('Feed created successfully:', feedId);
 
+      // Inject feedId into URL without redirect
+      const currentPath = window.location.pathname;
+      let newPath;
+      
+      if (currentPath.includes('/chat')) {
+        // If already on a chat route, replace or add feedId
+        newPath = currentPath.endsWith('/chat') 
+          ? `${currentPath}/${feedId}` 
+          : currentPath.replace(/\/chat\/.*$/, `/chat/${feedId}`);
+      } else {
+        // If not on chat route, construct new path with dashboard prefix
+        newPath = `/dashboard/classes/${config.classId}/chat/${feedId}`;
+      }
+      
+      console.log('Injecting feedId into URL:', newPath);
+      window.history.replaceState(null, '', newPath);
+
       // Wait a bit for WebSocket to be ready if it's not connected yet
       let attempts = 0;
       const maxAttempts = 10;
@@ -106,6 +123,59 @@ export const useChat = (initialConfig = null) => {
       return { success: false, error: error.message || 'Failed to start chat' };
     }
   }, [isConnected, selectedDocuments, createFeed, initializeChat, clearMessages]);
+
+  // Load existing chat by feedId
+  const loadExistingChat = useCallback(async (feedId, classId) => {
+    try {
+      console.log('Loading existing chat:', feedId);
+
+      // Get feed prompts to load chat history
+      const { data: promptsData, error: promptsError } = await getFeedPrompts(feedId);
+      
+      if (promptsError) {
+        console.error('Error loading chat history:', promptsError);
+        return { success: false, error: promptsError };
+      }
+
+      // Wait for WebSocket connection
+      let attempts = 0;
+      const maxAttempts = 10;
+      while (!isConnected && attempts < maxAttempts) {
+        console.log(`Waiting for WebSocket connection... attempt ${attempts + 1}`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        attempts++;
+      }
+
+      // Initialize WebSocket chat with existing feedId
+      if (isConnected) {
+        console.log('Initializing WebSocket chat with existing feedId:', feedId);
+        initializeChat({
+          userId: promptsData.user_id || 'unknown',
+          classId: classId,
+          title: promptsData.title || 'Existing Chat',
+          contextData: promptsData.context_data || '',
+          contextFiles: promptsData.context_files || [],
+          selectedAgents: promptsData.selected_agents || ['rag_agent'],
+          feedId: feedId
+        });
+        
+        setCurrentFeed({
+          userId: promptsData.user_id || 'unknown',
+          classId: classId,
+          title: promptsData.title || 'Existing Chat',
+          feedId: feedId
+        });
+
+        return { success: true, feedId };
+      } else {
+        console.warn('WebSocket not connected, cannot load existing chat');
+        return { success: false, error: 'WebSocket connection not available' };
+      }
+    } catch (error) {
+      console.error('Error in loadExistingChat:', error);
+      return { success: false, error: error.message || 'Failed to load existing chat' };
+    }
+  }, [isConnected, getFeedPrompts, initializeChat]);
 
   // Send a message
   const sendChatMessage = useCallback((message) => {
@@ -168,6 +238,7 @@ export const useChat = (initialConfig = null) => {
     
     // Actions
     startNewChat,
+    loadExistingChat,
     sendMessage: sendChatMessage,
     setSelectedAgent,
     updateContext,

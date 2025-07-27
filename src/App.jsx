@@ -8,6 +8,8 @@ import SigninPage from './pages/public/SigninPage'
 import SignupPage from './pages/public/SignupPage'
 import Sahayak from './pages/private/Sahayak'
 import CreateClass from './pages/private/chat/CreateClass'
+import Classes from './pages/private/chat/Classes'
+import Chat from './pages/private/chat/Chat'
 
 
 // Create a React Query client
@@ -35,6 +37,8 @@ const App = () => {
             {/* Protected routes */}
             <Route element={<ProtectedRoutes />}>
               <Route path="/dashboard" element={<Sahayak />} />
+              <Route path="/dashboard/classes/:classId/chat" element={<Sahayak />} />
+              <Route path="/dashboard/classes/:classId/chat/:feedId" element={<Sahayak />} />
             </Route>
           </Routes>
         </Router>

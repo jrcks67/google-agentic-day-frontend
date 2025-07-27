@@ -4,11 +4,14 @@ import {
   X, MessageSquare, Menu, Home, User, CheckCircle, Clock, Zap, ChevronRight,
   GraduationCap, BookOpen, Paperclip, AlertCircle, Wifi, WifiOff
 } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import { useChat } from '../../../hooks/useChat';
 import { useCurrentUser } from '../../../hooks/useAuth';
 
 
 const Chat = ({ selectedClass, onBackToClasses, onLogout }) => {
+  // Get URL parameters
+  const { feedId } = useParams();
   // Get current authenticated user
   const { data: currentUser, isLoading: userLoading, error: userError } = useCurrentUser();
 
@@ -22,7 +25,7 @@ const Chat = ({ selectedClass, onBackToClasses, onLogout }) => {
     setSelectedAgent,
     sendMessage,
     startNewChat,
-    loadChatHistory,
+    loadExistingChat,
     updateContext,
     clearAllErrors,
     hasActiveChat
@@ -79,22 +82,40 @@ const Chat = ({ selectedClass, onBackToClasses, onLogout }) => {
   useEffect(() => {
     if (selectedClass && !hasActiveChat && currentUser?.id) {
       const initChat = async () => {
-        const result = await startNewChat({
-          userId: currentUser.id,
-          classId: selectedClass.id,
-          title: `${selectedClass.name} Chat`,
-          contextData: `Working with ${selectedClass.name} - Grades: ${selectedClass.grades?.join(', ') || 'Multi-grade'}`,
-          selectedAgents: Object.keys(agents)
-        });
+        // If feedId exists in URL, load existing chat
+        if (feedId) {
+          console.log('Loading existing chat from URL:', feedId);
+          const result = await loadExistingChat(feedId, selectedClass.id);
+          if (!result.success) {
+            console.error('Failed to load existing chat:', result.error);
+            // If loading existing chat fails, start a new one
+            await startNewChat({
+              userId: currentUser.id,
+              classId: selectedClass.id,
+              title: `${selectedClass.name} Chat`,
+              contextData: `Working with ${selectedClass.name} - Grades: ${selectedClass.grades?.join(', ') || 'Multi-grade'}`,
+              selectedAgents: Object.keys(agents)
+            });
+          }
+        } else {
+          // No feedId in URL, start new chat
+          const result = await startNewChat({
+            userId: currentUser.id,
+            classId: selectedClass.id,
+            title: `${selectedClass.name} Chat`,
+            contextData: `Working with ${selectedClass.name} - Grades: ${selectedClass.grades?.join(', ') || 'Multi-grade'}`,
+            selectedAgents: Object.keys(agents)
+          });
 
-        if (!result.success) {
-          console.error('Failed to initialize chat:', result.error);
+          if (!result.success) {
+            console.error('Failed to initialize chat:', result.error);
+          }
         }
       };
 
       initChat();
     }
-  }, [selectedClass, hasActiveChat, startNewChat, currentUser]);
+  }, [selectedClass, hasActiveChat, startNewChat, loadExistingChat, currentUser, feedId]);
 
   // Update context when documents/students change
   useEffect(() => {
