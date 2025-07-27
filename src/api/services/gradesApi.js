@@ -152,18 +152,67 @@ export const gradesApi = {
   },
 
   /**
+   * Assign a subject to a grade
+   *
+   * @param {String} gradeId - The grade ID
+   * @param {String} subjectId - The subject ID
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response or error
+   */
+  assignSubjectToGrade: async (gradeId, subjectId) => {
+    try {
+      const response = await gradesClient.post(`/grades/${gradeId}/subjects/${subjectId}`);
+      return { data: response.data, error: null };
+    } catch (error) {
+      console.error("Assign subject to grade error:", error);
+      return {
+        data: null,
+        error: {
+          message: error.response?.data?.message || error.response?.data?.detail || "Failed to assign subject to grade",
+          status: error.response?.status,
+          originalError: error
+        }
+      };
+    }
+  },
+
+  /**
+   * Get subject details with grades
+   *
+   * @param {String} subjectId - The subject ID
+   * @returns {Promise<{data: Object|null, error: Error|null}>} Response with subject details or error
+   */
+  getSubject: async (subjectId) => {
+    try {
+      const response = await gradesClient.get(`/subjects/${subjectId}`);
+      return { data: response.data, error: null };
+    } catch (error) {
+      console.error("Get subject error:", error);
+      return {
+        data: null,
+        error: {
+          message: error.response?.data?.message || error.response?.data?.detail || "Failed to get subject",
+          status: error.response?.status,
+          originalError: error
+        }
+      };
+    }
+  },
+
+  /**
    * Upload a document for a subject
    *
    * @param {String} subjectId - The subject ID
    * @param {File} file - The file to upload
    * @param {String} description - File description
+   * @param {String} gradeId - The grade ID
    * @returns {Promise<{data: Object|null, error: Error|null}>} Response with upload result or error
    */
-  uploadSubjectDocument: async (subjectId, file, description) => {
+  uploadSubjectDocument: async (subjectId, file, description, gradeId) => {
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('description', description);
+      formData.append('grade_id', gradeId);
 
       const response = await gradesClient.post(`/subjects/${subjectId}/upload-document`, formData, {
         headers: {

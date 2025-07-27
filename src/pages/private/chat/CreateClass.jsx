@@ -104,7 +104,27 @@ const CreateClass = ({ onBack, onClassCreated }) => {
 
       const createdSubject = subjectData.data;
 
-      // Step 2: Upload files if any
+      // Step 2: Assign subject to grade
+      if (createdClassId) {
+        const { error: assignError } = await gradesApi.assignSubjectToGrade(createdClassId, createdSubject.id);
+
+        if (assignError) {
+          console.error("Failed to assign subject to grade:", assignError.message);
+          setSubjectError("Failed to assign subject to grade");
+          return;
+        }
+      }
+
+      // Step 3: Get subject details with grades to get grade_id
+      const { data: subjectDetails, error: getSubjectError } = await gradesApi.getSubject(createdSubject.id);
+
+      if (getSubjectError) {
+        console.error("Failed to get subject details:", getSubjectError.message);
+        setSubjectError("Failed to get subject details");
+        return;
+      }
+
+      // Step 4: Upload files if any
       const uploadedFiles = [];
       if (currentSubject.files.length > 0) {
         setIsUploadingFiles(true);
@@ -115,7 +135,8 @@ const CreateClass = ({ onBack, onClassCreated }) => {
           const { data: uploadData, error: uploadError } = await gradesApi.uploadSubjectDocument(
             createdSubject.id,
             file,
-            description
+            description,
+            createdClassId // Pass the grade_id
           );
 
           if (uploadError) {
