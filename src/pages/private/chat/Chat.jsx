@@ -916,13 +916,13 @@ const mockDocuments = {
     },
     {
       id: 2,
-      name: "Previous Quiz Results - Math",
+      name: "Previous Quiz  Results - Math",
       type: "csv",
       size: "850 KB",
       status: "processed",
       uploadedAt: "2024-07-25T10:30:00Z",
       chunks: 18,
-      category: "assessment"
+      category: "assessment "
     }
   ],
   subject_docs: [
