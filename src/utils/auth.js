@@ -2,100 +2,32 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
- * Get authorization header for authenticated requests
- * @returns {Object} Authorization header object
- */
-export const getAuthHeader = () => {
-  const token = localStorage.getItem('authToken');
-  const tokenType = localStorage.getItem('tokenType') || 'bearer';
-
-  if (!token) {
-    return {};
-  }
-
-  return {
-    'Authorization': `${tokenType} ${token}`
-  };
-};
-
-/**
- * Make authenticated API request
- * @param {string} url - API endpoint URL
- * @param {Object} options - Fetch options
- * @returns {Promise<Response>}
- */
-export const authenticatedFetch = async (url, options = {}) => {
-  const authHeaders = getAuthHeader();
-
-  return fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeaders,
-      ...options.headers,
-    },
-  });
-};
-
-/**
  * Sign up with email and password
  * @param {string} email - User's email
  * @param {string} password - User's password
  * @param {string} fullName - User's full name (optional)
+ * @param {string} companyName - Company name (optional)
  * @returns {Promise<{data: any, error: any}>}
  */
-export const signUpWithEmail = async (email, password, fullName) => {
+export const signUpWithEmail = async (email, password, fullName = '', companyName = '') => {
   try {
-    const nameParts = fullName ? fullName.split(' ') : ['', ''];
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    const requestBody = {
-      email,
-      password,
-      first_name: firstName,
-      last_name: lastName
-    };
-
-    console.log('Signup request:', { ...requestBody, password: '***' });
-
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      credentials: 'include',
+      body: JSON.stringify({
+        email,
+        password,
+      }),
     });
 
     const data = await response.json();
-    console.log('Signup response:', data);
 
     if (!response.ok) {
-      // Handle specific error cases
-      let errorMessage = 'Registration failed';
-
-      if (data.detail) {
-        if (typeof data.detail === 'string') {
-          errorMessage = data.detail;
-        } else if (data.detail.includes && data.detail.includes('REGISTER_USER_ALREADY_EXISTS')) {
-          errorMessage = 'User with this email already exists';
-        } else {
-          errorMessage = data.detail;
-        }
-      }
-
-      return {
-        data: null,
-        error: {
-          message: errorMessage,
-          status: response.status
-        }
-      };
+      return { data: null, error: { message: data.detail || 'Signup failed' } };
     }
-
-    // Store user email for potential future use
-    localStorage.setItem('signupEmail', email);
-    console.log('Signup successful for:', email);
 
     return { data, error: null };
   } catch (error) {
@@ -112,57 +44,33 @@ export const signUpWithEmail = async (email, password, fullName) => {
  */
 export const signInWithEmail = async (email, password) => {
   try {
-    // Create form data exactly like the working curl command
-    const formData = new URLSearchParams();
-    formData.append('username', email);
-    formData.append('password', password);
-
-    console.log('Login request to:', `${API_BASE_URL}/auth/jwt/login`);
-
-    const response = await fetch(`${API_BASE_URL}/auth/jwt/login`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      credentials: 'include',
+      body: JSON.stringify({
+        email,
+        password,
+      }),
     });
 
     const data = await response.json();
-    console.log('Login response:', data);
 
     if (!response.ok) {
-      let errorMessage = 'Login failed';
-
-      if (data.detail) {
-        errorMessage = data.detail;
-      } else if (response.status === 401) {
-        errorMessage = 'Invalid email or password';
-      } else if (response.status === 422) {
-        errorMessage = 'Please check your email and password';
-      }
-
-      return { data: null, error: { message: errorMessage, status: response.status } };
+      return { data: null, error: { message: data.detail || 'Login failed' } };
     }
 
-    // Store access token from the response format: { "access_token": "...", "token_type": "bearer" }
+    // Store access token if provided
     if (data.access_token) {
       localStorage.setItem('authToken', data.access_token);
-      localStorage.setItem('tokenType', data.token_type || 'bearer');
-
-      // Store user email for later use
-      localStorage.setItem('userEmail', email);
-
-      console.log('Token stored successfully:', data.token_type, data.access_token.substring(0, 20) + '...');
-      console.log('User email stored:', email);
-    } else {
-      console.error('No access token in response:', data);
-      return { data: null, error: { message: 'Invalid response from server' } };
     }
 
     return { data, error: null };
   } catch (error) {
     console.error('Login error:', error);
-    return { data: null, error: { message: 'Network error occurred: ' + error.message } };
+    return { data: null, error: { message: 'Network error occurred' } };
   }
 };
 
@@ -172,64 +80,29 @@ export const signInWithEmail = async (email, password) => {
  */
 export const signOut = async () => {
   try {
-    const token = localStorage.getItem('authToken');
-    const tokenType = localStorage.getItem('tokenType') || 'bearer';
+    const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+      },
+      credentials: 'include',
+    });
 
-    if (token) {
-      console.log('Calling logout API with token:', token.substring(0, 20) + '...');
-
-      try {
-        // Call the logout API endpoint
-        const response = await fetch(`${API_BASE_URL}/auth/jwt/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `${tokenType} ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        console.log('Logout API response status:', response.status);
-
-        // Even if the API call fails, we still want to clear local storage
-        if (!response.ok) {
-          console.warn('Logout API failed, but continuing with local cleanup');
-        } else {
-          console.log('Logout API call successful');
-        }
-      } catch (apiError) {
-        console.error('Logout API error:', apiError);
-        console.log('Continuing with local storage cleanup despite API error');
-      }
-    }
-
-    // Clear tokens from localStorage
+    // Clear local storage regardless of response
     localStorage.removeItem('authToken');
-    localStorage.removeItem('tokenType');
 
-    // Clear any other user-related data
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('signupEmail');
-
-    console.log('User signed out successfully - all tokens and data cleared');
+    if (!response.ok) {
+      const data = await response.json();
+      return { error: { message: data.detail || 'Logout failed' } };
+    }
 
     return { error: null };
   } catch (error) {
     console.error('Logout error:', error);
-
-    // Even if there's an error, try to clear localStorage
-    try {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('tokenType');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('signupEmail');
-      console.log('Emergency cleanup: localStorage cleared');
-    } catch (cleanupError) {
-      console.error('Failed to clear localStorage:', cleanupError);
-    }
-
-    return { error: { message: 'Logout failed but local data cleared' } };
+    // Still clear token even if request fails
+    localStorage.removeItem('authToken');
+    return { error: { message: 'Network error occurred' } };
   }
 };
 
@@ -304,19 +177,28 @@ export const resendConfirmationEmail = async (email) => {
 export const getCurrentUser = async () => {
   try {
     const token = localStorage.getItem('authToken');
-    const userEmail = localStorage.getItem('userEmail');
-
     if (!token) {
       return null;
     }
 
-    // Return user object with stored information
-    return {
-      id: 'current-user',
-      email: userEmail || 'user@example.com',
-      authenticated: true,
-      token: token.substring(0, 20) + '...' // Partial token for debugging
-    };
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('authToken');
+      }
+      return null;
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('Get current user error:', error);
     return null;
@@ -330,28 +212,26 @@ export const getCurrentUser = async () => {
 export const isAuthenticated = async () => {
   try {
     const token = localStorage.getItem('authToken');
-    const tokenType = localStorage.getItem('tokenType');
+    if (!token) {
+      return false;
+    }
 
-    console.log('isAuthenticated check:', {
-      hasToken: !!token,
-      tokenType,
-      tokenPreview: token ? token.substring(0, 20) + '...' : null
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify-token`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      credentials: 'include',
     });
 
-    if (!token) {
-      console.log('isAuthenticated: No token found');
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('authToken');
+      }
       return false;
     }
 
-    // Check if token is not empty and has reasonable length
-    if (token.length < 10) {
-      console.log('isAuthenticated: Token too short, removing');
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('tokenType');
-      return false;
-    }
-
-    console.log('isAuthenticated: Token exists and valid');
     return true;
   } catch (error) {
     console.error('Authentication check error:', error);
